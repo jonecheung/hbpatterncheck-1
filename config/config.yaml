@@ -1,0 +1,45 @@
+# Phase 1 settings
+phase: 1  # 1 for hybrid, 2 for fully local
+
+pdf:
+  source: "data/Abnormal Hb Pattern(pdf).pdf"
+  output_text: "data/pdf_text.json"
+  output_images: "data/extracted_images/"
+
+embeddings:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  dimension: 384
+
+vectordb:
+  type: "chroma"
+  persist_directory: "./vector_db/chroma_storage"
+  collection_name: "hb_patterns"
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 200
+  separators: ["\n\n", "\n", ". ", " ", ""]
+
+vision:
+  phase1_model: "gpt-4-vision-preview"  # GPT-4V
+  phase2_model: "llava:13b"             # Local LLaVA
+  descriptions_cache: "data/image_descriptions.json"
+
+llm:
+  model: "llama3"
+  temperature: 0.7
+  max_tokens: 500
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 0.7
+  search_type: "similarity"  # or "mmr"
+
+ui:
+  title: "Hemoglobin Pattern Disease Chatbot"
+  page_icon: "🔬"
+  examples:
+    - "What are characteristics of HbE disease?"
+    - "Show cases with elevated HbA2"
+    - "Find beta thalassemia patterns"
+

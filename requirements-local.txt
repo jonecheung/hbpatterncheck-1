@@ -1,0 +1,7 @@
+# Phase 2 dependencies - Fully local setup
+# Add these to requirements.txt when transitioning to Phase 2
+
+open-clip-torch==2.23.0
+torch==2.1.0
+torchvision==0.16.0
+

@@ -1,0 +1,19 @@
+# Core dependencies
+langchain==0.1.0
+langchain-community==0.0.13
+chromadb==0.4.22
+pymupdf==1.23.8
+pypdf==3.17.4
+sentence-transformers==2.3.1
+streamlit==1.29.0
+openai==1.7.2
+python-dotenv==1.0.0
+pillow==10.1.0
+pyyaml==6.0.1
+
+# Backend API dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.25.1
+pydantic==2.5.0
+python-multipart==0.0.6
