@@ -24,6 +24,14 @@
     <div class="upload">
         <h2>Upload Chromatograph (PDF or Image)</h2>
         <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+        <label for="pageNumber" style="margin-left: 20px;">PDF Page:</label>
+        <select id="pageNumber" style="padding: 8px; font-size: 14px;">
+            <option value="0">Page 1 (first)</option>
+            <option value="1">Page 2</option>
+            <option value="2">Page 3</option>
+            <option value="3">Page 4</option>
+            <option value="4">Page 5</option>
+        </select>
         <button onclick="search()">🔍 Search (No Cache)</button>
     </div>
     
@@ -35,13 +43,17 @@
         const file = document.getElementById('fileInput').files[0];
         if (!file) { alert('Please select a file'); return; }
         
+        // Get selected page number (declare once at the top)
+        const pageNumber = document.getElementById('pageNumber').value;
+        
         // Show query image
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('query').style.display = 'block';
+            const pageInfo = file.name.toLowerCase().endsWith('.pdf') ? ` (extracting page ${parseInt(pageNumber) + 1})` : '';
             document.getElementById('query').innerHTML = `
                 <h2>📤 Your Query</h2>
-                <p><strong>File:</strong> ${file.name}</p>
+                <p><strong>File:</strong> ${file.name}${pageInfo}</p>
                 <img src="${e.target.result}" style="max-width: 500px; border: 2px solid #4caf50;">
             `;
         };
@@ -50,12 +62,12 @@
         const formData = new FormData();
         formData.append('file', file);
         
-        document.getElementById('results').innerHTML = '<p style="text-align:center;">🔍 Searching with NEW position-based filter (no cache)...</p>';
+        document.getElementById('results').innerHTML = '<p style="text-align:center;">🔍 Searching with LLM screening (no cache)...</p>';
         
         try {
             // Add cache-busting timestamp to prevent browser caching
             const timestamp = new Date().getTime();
-            const response = await fetch(`http://localhost:8000/api/visual-search?top_k=3&_t=${timestamp}&llm_screen=true`, {
+            const response = await fetch(`http://localhost:8000/api/visual-search?top_k=3&page_number=${pageNumber}&_t=${timestamp}&llm_screen=true`, {
                 method: 'POST',
                 body: formData,
                 cache: 'no-cache'

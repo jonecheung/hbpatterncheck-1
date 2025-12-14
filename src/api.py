@@ -420,7 +420,8 @@ async def get_reference_image(filename: str):
 async def visual_search(
     file: UploadFile = File(...), 
     top_k: int = 10,
-    llm_screen: bool = True  # Enable LLM screening by default
+    llm_screen: bool = True,  # Enable LLM screening by default
+    page_number: int = 0  # Which page to extract from PDF (0-indexed)
 ):
     """
     Visual similarity search - upload chromatograph image or PDF to find similar patterns
@@ -429,6 +430,7 @@ async def visual_search(
         file: Uploaded image file (PNG, JPG) or PDF
         top_k: Number of similar images to return
         llm_screen: Enable LLM vision screening to filter bad results (default: True)
+        page_number: Which page to extract from PDF (0 = first page, 1 = second page, etc.)
     
     Returns:
         JSON with similar images and metadata
@@ -454,7 +456,8 @@ async def visual_search(
                 top_k=top_k,
                 clip_weight=0.40,  # 40% Visual similarity
                 peak_weight=0.60,  # 60% Clinical features (balanced)
-                llm_screen=llm_screen
+                llm_screen=llm_screen,
+                page_number=page_number
             )
         else:
             image = Image.open(io.BytesIO(contents)).convert('RGB')
@@ -463,7 +466,8 @@ async def visual_search(
                 top_k=top_k,
                 clip_weight=0.40,  # 40% Visual
                 peak_weight=0.60,  # 60% Clinical
-                llm_screen=llm_screen
+                llm_screen=llm_screen,
+                page_number=page_number  # Ignored for image uploads
             )
         
         # Format results

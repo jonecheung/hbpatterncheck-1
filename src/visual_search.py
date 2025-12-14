@@ -139,12 +139,13 @@ class VisualSearchEngine:
         
         return cropped
     
-    def extract_from_pdf(self, pdf_bytes: bytes) -> Image.Image:
+    def extract_from_pdf(self, pdf_bytes: bytes, page_number: int = 0) -> Image.Image:
         """
         Extract and crop chromatograph from PDF
         
         Args:
             pdf_bytes: PDF file as bytes
+            page_number: Which page to extract (0-indexed, default: 0 = first page)
             
         Returns:
             Cropped chromatograph image
@@ -152,8 +153,14 @@ class VisualSearchEngine:
         # Open PDF
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         
-        # Get first page (most PDFs have chromatograph on page 1 or 2)
-        page = doc[0]
+        # Validate page number
+        if page_number < 0 or page_number >= len(doc):
+            print(f"⚠️  Page {page_number} out of range (PDF has {len(doc)} pages), using page 0")
+            page_number = 0
+        
+        # Get specified page
+        page = doc[page_number]
+        print(f"📄 Extracting page {page_number + 1} of {len(doc)}")
         
         # Render at high resolution
         zoom = 2.0
@@ -291,7 +298,8 @@ Second image is the CANDIDATE (from our database)."""
         image: Image.Image = None,
         pdf_bytes: bytes = None,
         top_k: int = 10,
-        category_filter: str = None
+        category_filter: str = None,
+        page_number: int = 0
     ) -> Tuple[List[Dict], List[float]]:
         """
         Search for visually similar chromatographs
@@ -301,6 +309,7 @@ Second image is the CANDIDATE (from our database)."""
             pdf_bytes: PDF file bytes (for PDF uploads)
             top_k: Number of results to return
             category_filter: Optional category to filter by (e.g., 'hb_e')
+            page_number: Which page to extract from PDF (0-indexed, default: 0)
             
         Returns:
             Tuple of (results, similarities)
@@ -308,7 +317,7 @@ Second image is the CANDIDATE (from our database)."""
         # Handle PDF input
         if pdf_bytes is not None:
             print("📄 Processing PDF...")
-            image = self.extract_from_pdf(pdf_bytes)
+            image = self.extract_from_pdf(pdf_bytes, page_number=page_number)
             print(f"✅ Extracted and cropped chromatograph from PDF")
         
         # Handle image input (crop if it looks like a full page)
@@ -377,7 +386,8 @@ Second image is the CANDIDATE (from our database)."""
         clip_weight: float = 0.6,
         peak_weight: float = 0.4,
         category_filter: str = None,
-        llm_screen: bool = False
+        llm_screen: bool = False,
+        page_number: int = 0
     ) -> Tuple[List[Dict], List[float], Dict]:
         """
         Search with hybrid CLIP + peak-based similarity
@@ -389,6 +399,8 @@ Second image is the CANDIDATE (from our database)."""
             clip_weight: Weight for CLIP similarity (0-1)
             peak_weight: Weight for peak similarity (0-1)
             category_filter: Optional category filter
+            llm_screen: Enable LLM vision screening (default: False)
+            page_number: Which page to extract from PDF (0-indexed, default: 0)
             
         Returns:
             Tuple of (results, hybrid_scores, query_features)
@@ -398,12 +410,13 @@ Second image is the CANDIDATE (from our database)."""
             image=image,
             pdf_bytes=pdf_bytes,
             top_k=top_k * 3,  # Get 3x results for re-ranking
-            category_filter=category_filter
+            category_filter=category_filter,
+            page_number=page_number
         )
         
         # Handle PDF/image input
         if pdf_bytes is not None:
-            query_image = self.extract_from_pdf(pdf_bytes)
+            query_image = self.extract_from_pdf(pdf_bytes, page_number=page_number)
         elif image is not None:
             width, height = image.size
             if height > 800:
