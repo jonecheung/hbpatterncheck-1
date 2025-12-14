@@ -17,3 +17,8 @@ uvicorn[standard]==0.24.0
 httpx==0.25.1
 pydantic==2.5.0
 python-multipart==0.0.6
+
+# Image embedding dependencies (CLIP)
+torch>=2.2.0
+torchvision>=0.17.0
+open-clip-torch>=2.23.0

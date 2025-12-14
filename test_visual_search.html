@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Visual Search Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .result-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .result-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        .similarity {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        button {
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #uploadedPreview {
+            max-width: 400px;
+            margin: 20px auto;
+            display: none;
+        }
+        #uploadedPreview img {
+            width: 100%;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 Visual Chromatograph Search</h1>
+    <p>Upload a chromatograph image (PNG, JPG) or PDF report to find similar patterns</p>
+    
+    <div class="upload-section">
+        <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf" style="display: none;">
+        <button onclick="document.getElementById('fileInput').click()">
+            Choose Image or PDF Report
+        </button>
+        <button id="searchBtn" onclick="searchSimilar()" disabled style="margin-left: 10px;">
+            Search Similar Patterns
+        </button>
+        
+        <div id="uploadedPreview">
+            <h3>Uploaded Image:</h3>
+            <img id="previewImg" src="" alt="Preview">
+        </div>
+    </div>
+    
+    <div class="loading" id="loading">
+        🔄 Searching for similar patterns...
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let selectedFile = null;
+        
+        // File selection handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('uploadedPreview').style.display = 'block';
+                    document.getElementById('searchBtn').disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Search function
+        async function searchSimilar() {
+            if (!selectedFile) {
+                alert('Please select an image first');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('searchBtn').disabled = true;
+            
+            try {
+                // Create form data
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                
+                // Call API
+                const response = await fetch(`${API_URL}/api/visual-search?top_k=10`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Display results
+                displayResults(data.results);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('results').innerHTML = `
+                    <div style="color: red; padding: 20px;">
+                        ❌ Error: ${error.message}<br>
+                        Make sure the backend is running on port 8000
+                    </div>
+                `;
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+            }
+        }
+        
+        // Display results
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<p>No similar images found</p>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = `<h2>🎯 Found ${results.length} Similar Patterns:</h2>`;
+            
+            const grid = document.createElement('div');
+            grid.className = 'results';
+            
+            results.forEach((result, index) => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                
+                const similarity = (result.similarity * 100).toFixed(1);
+                const category = result.category.replace(/_/g, ' ').toUpperCase();
+                
+                // Build detailed info
+                let detailsHtml = `
+                    <div class="similarity">#${index + 1}: ${similarity}%</div>
+                    <img src="${API_URL}${result.image_url}" alt="Similar pattern">
+                    <h3>${category}</h3>
+                    <p>
+                        <strong>System:</strong> ${result.system_type}<br>
+                        <strong>Source:</strong> ${result.source}<br>
+                `;
+                
+                // Add peak analysis details if available
+                if (result.clip_similarity && result.peak_similarity) {
+                    const clipScore = (result.clip_similarity * 100).toFixed(1);
+                    const peakScore = (result.peak_similarity * 100).toFixed(1);
+                    
+                    detailsHtml += `
+                        <strong>CLIP Score:</strong> ${clipScore}%<br>
+                        <strong>Peak Score:</strong> ${peakScore}%<br>
+                        <strong>Peaks Found:</strong> ${result.num_peaks || 'N/A'}
+                    `;
+                }
+                
+                detailsHtml += '</p>';
+                card.innerHTML = detailsHtml;
+                
+                grid.appendChild(card);
+            });
+            
+            resultsDiv.appendChild(grid);
+        }
+    </script>
+</body>
+</html>
+

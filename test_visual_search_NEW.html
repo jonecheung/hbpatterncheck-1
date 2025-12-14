@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Visual Search Test - WITH IMAGES</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .upload { margin: 20px 0; padding: 20px; border: 2px dashed #0066cc; border-radius: 8px; }
+        .version { color: green; font-weight: bold; margin: 10px 0; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .result { border: 2px solid #ddd; padding: 15px; border-radius: 8px; background: #f9f9f9; }
+        .result h3 { margin-top: 0; color: #0066cc; }
+        .result img { width: 100%; height: auto; border: 1px solid #ccc; }
+        .stats { font-size: 14px; margin: 10px 0; }
+        .query-section { background: #e8f5e9; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        button { background: #0066cc; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0052a3; }
+    </style>
+</head>
+<body>
+    <h1>🔬 Visual Search Test</h1>
+    <div class="version">✅ UPDATED VERSION - Position-Based Matching + Image Display</div>
+    
+    <div class="upload">
+        <h2>Upload Chromatograph (PDF or Image)</h2>
+        <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+        <button onclick="search()">🔍 Search</button>
+    </div>
+    
+    <div id="query" class="query-section" style="display:none;"></div>
+    <div id="results" class="results-grid"></div>
+    
+    <script>
+    let queryImageData = null;
+    
+    async function search() {
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) { alert('Please select a file'); return; }
+        
+        // Show query image
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            queryImageData = e.target.result;
+            document.getElementById('query').style.display = 'block';
+            document.getElementById('query').innerHTML = `
+                <h2>📤 Your Query</h2>
+                <p><strong>File:</strong> ${file.name}</p>
+                <img src="${queryImageData}" style="max-width: 500px; border: 2px solid #4caf50;">
+            `;
+        };
+        reader.readAsDataURL(file);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        document.getElementById('results').innerHTML = '<p style="text-align:center;">🔍 Searching with NEW position-based filter...</p>';
+        
+        try {
+            const response = await fetch('http://localhost:8000/api/visual-search?top_k=10', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            displayResults(data);
+        } catch (error) {
+            document.getElementById('results').innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
+        }
+    }
+    
+    function displayResults(data) {
+        const resultsDiv = document.getElementById('results');
+        const results = data.results || [];
+        const queryFeatures = data.query_features || {};
+        
+        if (results.length === 0) {
+            resultsDiv.innerHTML = '<p>No results found.</p>';
+            return;
+        }
+        
+        let html = `<h2 style="grid-column: 1/-1;">🎯 Found ${results.length} Similar Patterns:</h2>
+                    <p style="grid-column: 1/-1;"><strong>Query peaks detected:</strong> ${queryFeatures.num_peaks || 'N/A'} 
+                    <span style="color: green;">✅ Position-based matching active!</span></p>`;
+        
+        results.forEach((r, i) => {
+            const overall = (r.similarity * 100).toFixed(1);
+            const clip = (r.clip_similarity * 100).toFixed(1);
+            const peak = (r.peak_similarity * 100).toFixed(1);
+            
+            // Get image path
+            const imageFile = r.image_file || 'unknown';
+            let imagePath = '';
+            
+            if (r.source === 'main_database') {
+                imagePath = `http://localhost:8000/api/images/main/${imageFile.replace('main_', '')}`;
+            } else {
+                imagePath = `http://localhost:8000/api/images/reference/${imageFile.replace('reference_', '')}`;
+            }
+            
+            html += `
+                <div class="result">
+                    <h3>#${i+1}: ${overall}%</h3>
+                    <img src="${imagePath}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22>Image not available</text></svg>'">
+                    <div class="stats">
+                        <p><strong>CLIP:</strong> ${clip}% | <strong>Peak:</strong> ${peak}%</p>
+                        <p><strong>Peaks Found:</strong> ${r.num_peaks || 'N/A'}</p>
+                        <p><strong>Category:</strong> ${(r.category || 'unknown').replace(/_/g, ' ')}</p>
+                        <p><strong>System:</strong> ${(r.system_type || 'unknown').replace(/_/g, ' ')}</p>
+                    </div>
+                </div>
+            `;
+        });
+        
+        resultsDiv.innerHTML = html;
+    }
+    </script>
+</body>
+</html>
